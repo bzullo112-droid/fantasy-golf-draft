@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta charset="utf-8" />
+  <title>Fantasy Golf Draft</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 12px; }
+#top { margin-bottom: 10px; }
+#statusLine { margin: 8px 0 12px; }
+#clock { font-weight: bold; margin-top: 6px; font-size: 18px; }
+
+textarea { width: 100%; height: 140px; font-size: 16px; }
+input { font-size: 16px; }
+button { margin-right: 8px; margin-top: 8px; padding: 12px 12px; font-size: 16px; }
+
+#layout { display: block; }
+#playersBox { width: 100%; }
+
+#playersList {
+  border: 1px solid #ccc;
+  height: 52vh;
+  overflow: auto;
+  padding: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.playerBtn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 14px 12px;
+  margin: 8px 0;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.playerBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+#picks { margin-top: 14px; }
+#picksList li { margin: 6px 0; font-size: 16px; }
+
+.hint { color: #555; font-size: 13px; margin-top: 6px; }  
+</style>
+</head>
+<body>
+
+  <h1>Fantasy Golf Draft Room</h1>
+
+  <div id="statusLine">
+    <div><b>Status:</b> <span id="status">lobby</span> |
+      <b>Pick:</b> <span id="pickNum">-</span> |
+      <b>On the clock:</b> <span id="onClock">-</span>
+    </div>
+    <div id="clock">Clock: --:--</div>
+  </div>
+
+  <div id="layout">
+    <div>
+      <div class="hint">Paste the Sony Open player list below, then click <b>Load Players</b>.</div>
+      <textarea id="playerText" placeholder="Paste Sony Open player list here"></textarea><br/>
+      <button id="loadBtn">Load Players</button>
+      <button id="startBtn">Start Draft</button>
+      <div class="hint">Tip: Start Draft first, then click a player to make a pick.</div>
+
+      <div id="picks">
+        <h3>Picks</h3>
+        <ol id="picksList"></ol>
+      </div>
+    </div>
+
+    <div id="playersBox">
+      <h3>Click to Draft</h3>
+<input id="search" type="text" placeholder="Search players..." style="width:100%; padding:8px; margin:8px 0;" />
+
+      <div class="hint">When it’s your turn, click a golfer below.</div>
+      <div id="playersList"></div>
+    </div>
+  </div>
+
+<script>
+  const socket = io("http://localhost:4000");
+
+  let allPlayers = [];     // loaded from textarea
+  let draftedSet = new Set(); // derived from state.picks
+
+  function normalizeLines(text) {
+    // Split lines, trim, remove blanks
+    return text
+      .split(/\r?\n/)
+      .map(x => x.trim())
+      .filter(x => x.length > 0);
+  }
+
+  function renderPlayers() {
+    const list = document.getElementById("playersList");
+    list.innerHTML = "";
+
+    // Remove drafted players from the clickable list
+    const q = (document.getElementById("search")?.value || "").toLowerCase();
+
+const available = allPlayers
+  .filter(p => !draftedSet.has(p))
+  .filter(p => p.toLowerCase().includes(q));
+
+    if (available.length === 0) {
+      list.innerHTML = "<i>No available players loaded yet.</i>";
+      return;
+    }
+
+    available.forEach(player => {
+      const btn = document.createElement("button");
+      btn.className = "playerBtn";
+if (draftedSet.has(player)) {
+  btn.classList.add("disabled");
+  btn.disabled = true;
+}
+      btn.textContent = player;
+
+      // Only allow clicks when draft is live
+      const status = document.getElementById("status").textContent;
+      btn.disabled = (status !== "live");
+
+      btn.onclick = () => {
+        const currentStatus = document.getElementById("status").textContent;
+        if (currentStatus !== "live") {
+          alert("Draft is not live yet. Click Start Draft first.");
+          return;
+        }
+        socket.emit("pick", player);
+      };
+
+      list.appendChild(btn);
+    });
+  }
+
+  function setClockFromPickEndsAt(pickEndsAt) {
+    const clockEl = document.getElementById("clock");
+    if (!pickEndsAt) { clockEl.textContent = "Clock: --:--"; return; }
+
+    const tick = () => {
+      const ms = pickEndsAt - Date.now();
+      if (ms <= 0) { clockEl.textContent = "Clock: 00:00"; return; }
+      const totalSec = Math.floor(ms / 1000);
+      const m = String(Math.floor(totalSec / 60)).padStart(2, "0");
+      const s = String(totalSec % 60).padStart(2, "0");
+      clockEl.textContent = `Clock: ${m}:${s}`;
+      requestAnimationFrame(tick);
+    };
+    tick();
+  }
+document.getElementById("search").addEventListener("input", () => {
+  renderPlayers();
+});
+  document.getElementById("loadBtn").onclick = () => {
+    const raw = document.getElementById("playerText").value;
+    const lines = normalizeLines(raw);
+
+    allPlayers = lines;
+    socket.emit("loadPlayers", allPlayers);
+
+    alert(`${allPlayers.length} players loaded ✅`);
+    renderPlayers();
+  };
+
+  document.getElementById("startBtn").onclick = () => {
+    socket.emit("startDraft");
+  };
+
+  socket.on("state", (state) => {
+    document.getElementById("status").textContent = state.status || "lobby";
+    document.getElementById("pickNum").textContent = state.currentPick || "-";
+    const drafters = ["Carter","Ethan","Dominic","Matt","Brian","Adam","Nick"];
+
+const pick = state.currentPick || 1;
+const index = (pick - 1) % drafters.length;
+const round = Math.floor((pick - 1) / drafters.length) + 1;
+
+const onClock =
+  round % 2 === 1
+    ? drafters[index]
+    : drafters[drafters.length - 1 - index];
+
+document.getElementById("onClock").textContent = onClock;
+
+    // Build drafted set from picks
+    draftedSet = new Set((state.picks || []).map(p => p.player));
+
+    // Render picks list
+    const picksList = document.getElementById("picksList");
+    picksList.innerHTML = "";
+    (state.picks || []).forEach(p => {
+      const li = document.createElement("li");
+      li.textContent = `${p.drafter} selected ${p.player}`;
+      picksList.appendChild(li);
+    });
+
+    setClockFromPickEndsAt(state.pickEndsAt || null);
+    renderPlayers();
+  });
+</script>
+
+</body>
+</html>

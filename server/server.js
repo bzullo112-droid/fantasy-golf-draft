@@ -1,0 +1,92 @@
+const path = require("path");
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+
+const app = express();
+app.use(express.static(path.join(__dirname, "../web")));
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*" } });
+
+const DRAFTERS = ["Carter","Ethan","Dominic","Matt","Brian","Adam","Nick"];
+const PICKS_PER_DRAFTER = 6;
+const TOTAL_PICKS = DRAFTERS.length * PICKS_PER_DRAFTER;
+
+let room = {
+  status: "lobby",
+  currentPick: 1,
+  pickEndsAt: null,
+  players: [],
+  picks: []
+};
+
+function drafterForPick(pick) {
+  const round = Math.floor((pick - 1) / DRAFTERS.length) + 1;
+  const index = (pick - 1) % DRAFTERS.length;
+  return round % 2 === 1 ? DRAFTERS[index] : DRAFTERS[DRAFTERS.length - 1 - index];
+}
+
+io.on("connection", (socket) => {
+  socket.emit("state", room);
+
+  socket.on("loadPlayers", (players) => {
+    room.players = players;
+    io.emit("state", room);
+  });
+
+  socket.on("startDraft", () => {
+    room.status = "live";
+    room.currentPick = 1;
+    room.pickEndsAt = Date.now() + 120000;
+    io.emit("state", room);
+// AUTO PICK when timer runs out
+  setInterval(() => {
+    if (room.status !== "live") return;
+    if (!room.pickEndsAt) return;
+    if (Date.now() < room.pickEndsAt) return;
+
+    // Pick top available player
+    const drafted = new Set(room.picks.map(p => p.player));
+    const available = room.players.filter(p => !drafted.has(p));
+    if (available.length === 0) return;
+
+    const autoPick = available[0];
+
+    room.picks.push({
+      pick: room.currentPick,
+      drafter: drafterForPick(room.currentPick),
+      player: autoPick
+    });
+
+    room.currentPick++;
+
+    if (room.currentPick > TOTAL_PICKS) {
+      room.status = "done";
+      room.pickEndsAt = null;
+    } else {
+      room.pickEndsAt = Date.now() + 120000;
+    }
+
+    io.emit("state", room);
+  }, 1000);
+
+  });
+
+  socket.on("pick", (player) => {
+    if (room.status !== "live") return;
+    room.picks.push({ pick: room.currentPick, drafter: drafterForPick(room.currentPick), player });
+    room.currentPick++;
+
+    if (room.currentPick > TOTAL_PICKS) {
+      room.status = "done";
+      room.pickEndsAt = null;
+    } else {
+      room.pickEndsAt = Date.now() + 120000;
+    }
+    io.emit("state", room);
+  });
+});
+
+server.listen(4000, () => {
+  console.log("Draft server running on http://localhost:4000");
+});
