@@ -19,13 +19,19 @@ let room = {
   players: [],
   picks: []
 };
-
+function resetRoom(keepPlayers = true) {
+  room.status = "lobby";
+  room.currentPick = 1;
+  room.pickEndsAt = null;
+  room.picks = [];
+  if (!keepPlayers) room.players = [];
+}
 function drafterForPick(pick) {
   const round = Math.floor((pick - 1) / DRAFTERS.length) + 1;
   const index = (pick - 1) % DRAFTERS.length;
   return round % 2 === 1 ? DRAFTERS[index] : DRAFTERS[DRAFTERS.length - 1 - index];
 }
-
+let autoPickInterval = null;
 io.on("connection", (socket) => {
   socket.emit("state", room);
 
@@ -33,14 +39,18 @@ io.on("connection", (socket) => {
     room.players = players;
     io.emit("state", room);
   });
-
+socket.on("resetDraft", (keepPlayers) => {
+  resetRoom(keepPlayers !== false); // default = true
+  io.emit("state", room);
+});
   socket.on("startDraft", () => {
     room.status = "live";
     room.currentPick = 1;
     room.pickEndsAt = Date.now() + 120000;
     io.emit("state", room);
 // AUTO PICK when timer runs out
-  setInterval(() => {
+if (autoPick Interval) clear Interval(autoPick Interval);
+  autoPickInterval = setInterval(() => {
     if (room.status !== "live") return;
     if (!room.pickEndsAt) return;
     if (Date.now() < room.pickEndsAt) return;

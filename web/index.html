@@ -63,6 +63,7 @@ button { margin-right: 8px; margin-top: 8px; padding: 12px 12px; font-size: 16px
       <textarea id="playerText" placeholder="Paste Sony Open player list here"></textarea><br/>
       <button id="loadBtn">Load Players</button>
       <button id="startBtn">Start Draft</button>
+<button id="resetBtn">Reset Draft</button>
       <div class="hint">Tip: Start Draft first, then click a player to make a pick.</div>
 
       <div id="picks">
@@ -168,7 +169,12 @@ document.getElementById("search").addEventListener("input", () => {
   document.getElementById("startBtn").onclick = () => {
     socket.emit("startDraft");
   };
-
+document.getElementById("resetBtn").onclick = () => {
+  const keepPlayers = confirm(
+    "Keep players loaded?\n\nOK = keep players\nCancel = clear players too"
+  );
+  socket.emit("resetDraft", keepPlayers);
+};
   socket.on("state", (state) => {
     document.getElementById("status").textContent = state.status || "lobby";
     document.getElementById("pickNum").textContent = state.currentPick || "-";
