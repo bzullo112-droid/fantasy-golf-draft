@@ -81,7 +81,7 @@ button { margin-right: 8px; margin-top: 8px; padding: 12px 12px; font-size: 16px
   </div>
 
 <script>
-  const socket = io("http://localhost:4000");
+  const socket = io();
 
   let allPlayers = [];     // loaded from textarea
   let draftedSet = new Set(); // derived from state.picks
@@ -198,7 +198,7 @@ document.getElementById("onClock").textContent = onClock;
     });
 
     setClockFromPickEndsAt(state.pickEndsAt || null);
-    renderPlayers();
+    allPlayers = state.players || [];renderPlayers();
   });
 </script>
 
