@@ -49,7 +49,7 @@ socket.on("resetDraft", (keepPlayers) => {
     room.pickEndsAt = Date.now() + 120000;
     io.emit("state", room);
 // AUTO PICK when timer runs out
-if (autoPick Interval) clear Interval(autoPick Interval);
+if (autoPick Interval) clearInterval(autoPickInterval);
   autoPickInterval = setInterval(() => {
     if (room.status !== "live") return;
     if (!room.pickEndsAt) return;
