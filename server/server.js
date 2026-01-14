@@ -49,36 +49,34 @@ socket.on("resetDraft", (keepPlayers) => {
     room.pickEndsAt = Date.now() + 120000;
     io.emit("state", room);
 // AUTO PICK when timer runs out
-if (autoPick Interval) clearInterval(autoPickInterval);
+if (autoPickInterval) clearInterval(autoPickInterval);
   autoPickInterval = setInterval(() => {
-    if (room.status !== "live") return;
-    if (!room.pickEndsAt) return;
-    if (Date.now() < room.pickEndsAt) return;
+  if (room.status !== "live") return;
+  if (!room.pickEndsAt) return;
+  if (Date.now() < room.pickEndsAt) return;
 
-    // Pick top available player
-    const drafted = new Set(room.picks.map(p => p.player));
-    const available = room.players.filter(p => !drafted.has(p));
-    if (available.length === 0) return;
+  // Pick top available player
+  const drafted = new Set(room.picks.map(p => p.player));
+  const next = room.players.find(p => !drafted.has(p));
+  if (!next) return;
 
-    const autoPick = available[0];
+  room.picks.push({
+    pick: room.currentPick,
+    drafter: drafterForPick(room.currentPick),
+    player: next
+  });
 
-    room.picks.push({
-      pick: room.currentPick,
-      drafter: drafterForPick(room.currentPick),
-      player: autoPick
-    });
+  room.currentPick++;
 
-    room.currentPick++;
+  if (room.currentPick > TOTAL_PICKS) {
+    room.status = "done";
+    room.pickEndsAt = null;
+  } else {
+    room.pickEndsAt = Date.now() + 120000;
+  }
 
-    if (room.currentPick > TOTAL_PICKS) {
-      room.status = "done";
-      room.pickEndsAt = null;
-    } else {
-      room.pickEndsAt = Date.now() + 120000;
-    }
-
-    io.emit("state", room);
-  }, 1000);
+  io.emit("state", room);
+}, 1000);
 
   });
 
