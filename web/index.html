@@ -178,7 +178,7 @@ document.getElementById("resetBtn").onclick = () => {
   socket.on("state", (state) => {
     document.getElementById("status").textContent = state.status || "lobby";
     document.getElementById("pickNum").textContent = state.currentPick || "-";
-    const drafters = ["Carter","Dominic","Matt","Brian","Adam","Nick"];
+    const drafters = ["Brian","Matt","Carter","Adam","Dominic","Nick"];
 
 const pick = state.currentPick || 1;
 const index = (pick - 1) % drafters.length;

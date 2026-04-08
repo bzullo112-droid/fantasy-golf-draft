@@ -8,7 +8,7 @@ app.use(express.static(path.join(__dirname, "../web")));
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-const DRAFTERS = ["Carter","Dominic","Matt","Brian","Adam","Nick"];
+const DRAFTERS = ["Brian","Matt","Carter","Adam","Dominic","Nick"];
 const PICKS_PER_DRAFTER = 6;
 const TOTAL_PICKS = DRAFTERS.length * PICKS_PER_DRAFTER;
 
